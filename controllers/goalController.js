@@ -1,55 +1,79 @@
-const Goal = require('../models/goals');
+const asyncHandler = require('express-async-handler');
+const Goal = require('../models/goalModel');
 
-// @desc    Get all goals
+// @desc    Get goals
 // @route   GET /api/goals
-const getGoals = async (req, res) => {
-  const goals = await Goal.find();
+// @access  Private
+const getGoals = asyncHandler(async (req, res) => {
+  const goals = await Goal.find({ user: req.user.id });
   res.status(200).json(goals);
-};
+});
 
-// @desc    Create a goal
+// @desc    Set goal
 // @route   POST /api/goals
-const setGoal = async (req, res) => {
+// @access  Private
+const setGoal = asyncHandler(async (req, res) => {
   if (!req.body.text) {
-    return res.status(400).json({ message: 'Please add a text field' });
+    res.status(400);
+    throw new Error('Please add a text field');
   }
+
   const goal = await Goal.create({
     text: req.body.text,
+    user: req.user.id
   });
-  res.status(201).json(goal);
-};
 
-// @desc    Update a goal
+  res.status(200).json(goal);
+});
+
+// @desc    Update goal
 // @route   PUT /api/goals/:id
-const updateGoal = async (req, res) => {
+// @access  Private
+const updateGoal = asyncHandler(async (req, res) => {
   const goal = await Goal.findById(req.params.id);
+
   if (!goal) {
-    return res.status(404).json({ message: 'Goal not found' });
+    res.status(404);
+    throw new Error('Goal not found');
   }
 
-  const updatedGoal = await Goal.findByIdAndUpdate(req.params.id, req.body, {
-    new: true, // return updated data
-  });
+  if (goal.user.toString() !== req.user.id) {
+    res.status(401);
+    throw new Error('User not authorized');
+  }
+
+  const updatedGoal = await Goal.findByIdAndUpdate(
+    req.params.id,
+    req.body,
+    { new: true }
+  );
 
   res.status(200).json(updatedGoal);
-};
+});
 
-// @desc    Delete a goal
+// @desc    Delete goal
 // @route   DELETE /api/goals/:id
-const deleteGoal = async (req, res) => {
+// @access  Private
+const deleteGoal = asyncHandler(async (req, res) => {
   const goal = await Goal.findById(req.params.id);
+
   if (!goal) {
-    return res.status(404).json({ message: 'Goal not found' });
+    res.status(404);
+    throw new Error('Goal not found');
+  }
+
+  if (goal.user.toString() !== req.user.id) {
+    res.status(401);
+    throw new Error('User not authorized');
   }
 
   await goal.deleteOne();
-  res.status(200).json({ message: `Deleted goal with id ${req.params.id}` });
-};
+  res.status(200).json({ id: req.params.id });
+});
 
 module.exports = {
   getGoals,
   setGoal,
   updateGoal,
-  deleteGoal,
+  deleteGoal
 };
-
